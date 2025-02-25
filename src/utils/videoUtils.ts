@@ -1,4 +1,6 @@
 
+import { jsPDF } from "jspdf";
+
 const MAX_FILE_SIZE_MB = 100; // 100MB limit
 const OPTIMAL_FRAMES_PER_SECOND = 0.5; // One frame every 2 seconds for better performance
 
@@ -60,4 +62,45 @@ export const extractFramesFromVideo = async (
       video.currentTime = currentTime;
     };
   });
+};
+
+export const generatePDF = async (frames: string[]): Promise<Blob> => {
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "px",
+  });
+
+  for (let i = 0; i < frames.length; i++) {
+    if (i > 0) {
+      pdf.addPage();
+    }
+
+    const imgData = frames[i];
+    const img = new Image();
+    await new Promise((resolve) => {
+      img.onload = resolve;
+      img.src = imgData;
+    });
+
+    // Calculate dimensions to fit the page while maintaining aspect ratio
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgAspectRatio = img.width / img.height;
+    const pageAspectRatio = pageWidth / pageHeight;
+
+    let renderWidth = pageWidth;
+    let renderHeight = pageWidth / imgAspectRatio;
+
+    if (renderHeight > pageHeight) {
+      renderHeight = pageHeight;
+      renderWidth = pageHeight * imgAspectRatio;
+    }
+
+    const x = (pageWidth - renderWidth) / 2;
+    const y = (pageHeight - renderHeight) / 2;
+
+    pdf.addImage(imgData, "JPEG", x, y, renderWidth, renderHeight);
+  }
+
+  return pdf.output("blob");
 };

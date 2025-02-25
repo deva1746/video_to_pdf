@@ -4,7 +4,7 @@ import { useToast } from "@/components/ui/use-toast";
 import FileUpload from "@/components/FileUpload";
 import VideoPreview from "@/components/VideoPreview";
 import ConversionControls from "@/components/ConversionControls";
-import { validateVideoFile, extractFramesFromVideo } from "@/utils/videoUtils";
+import { validateVideoFile, extractFramesFromVideo, generatePDF } from "@/utils/videoUtils";
 import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
@@ -43,16 +43,36 @@ const Index = () => {
     setProgress(0);
 
     try {
+      // Extract frames
       const frames = await extractFramesFromVideo(videoFile, (progress) => {
-        setProgress(progress);
+        setProgress(progress * 0.6); // First 60% for frame extraction
       });
 
-      // For now, just show a success message when frames are extracted
+      if (frames.length === 0) {
+        throw new Error("No frames were extracted from the video");
+      }
+
+      // Generate PDF
+      setProgress(70); // Show progress for PDF generation
+      const pdfBlob = await generatePDF(frames);
+      
+      // Create download link
+      const downloadUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${videoFile.name.replace(/\.[^/.]+$/, "")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      setProgress(100);
       toast({
         title: "Conversion complete",
-        description: `Successfully extracted ${frames.length} frames`,
+        description: "Your PDF has been generated and downloaded",
       });
     } catch (error) {
+      console.error("Conversion error:", error);
       toast({
         title: "Conversion failed",
         description: "An error occurred during conversion",
